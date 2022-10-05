@@ -3,6 +3,13 @@ extern "C" {
 #endif
 
 /*
+ * Copyright (C) 2022 Pierantonio Tabaro <toni.tabaro@gmail.com>
+ * 
+ * pzem16: ModBus RTU client to read PZEM16 power meter registers
+ * 
+ * 
+ * Adapted from:
+ * 
  * sdm120c: ModBus RTU client to read EASTRON SDM120C smart mini power meter registers
  *
  * Copyright (C) 2015 Gianfranco Di Prinzio <gianfrdp@inwind.it>
@@ -53,44 +60,18 @@ extern "C" {
 
 #define DEFAULT_RATE 2400
 
-#define MODEL_120 1
-#define MODEL_220 2
-
 // Read
 #define VOLTAGE   0x0000
-#define CURRENT   0x0006
-#define POWER     0x000C
-#define APOWER    0x0012
-#define RAPOWER   0x0018
-#define PFACTOR   0x001E
-#define PANGLE    0x0024
-#define FREQUENCY 0x0046
-#define IAENERGY  0x0048
-#define EAENERGY  0x004A
-#define IRAENERGY 0x004C
-#define ERAENERGY 0x004E
-#define TAENERGY  0x0156
-#define TRENERGY  0x0158
+#define CURRENT   0x0001
+#define POWER     0x0003
+#define PFACTOR   0x0008
+#define FREQUENCY 0x0007
+#define TAENERGY  0x0005
 
 // Write
-#define NPARSTOP  0x0012
-#define DEVICE_ID 0x0014
-#define BAUD_RATE 0x001C
-#define TIME_DISP_220 0xF500
-#define TIME_DISP 0xF900
-#define PULSE_OUT 0xF910
-#define TOT_MODE  0xF920
-
-#define BR1200 5
-#define BR2400 0
-#define BR4800 1
-#define BR9600 2
+#define DEVICE_ID 0x0002
 
 #define MAX_RETRIES 100
-
-#define E_PARITY 'E'
-#define O_PARITY 'O'
-#define N_PARITY 'N'
 
 #define RESTART_TRUE  1
 #define RESTART_FALSE 0
@@ -104,7 +85,7 @@ int trace_flag     = 0;
 
 int metern_flag    = 0;
 
-const char *version     = "1.3.5.6";
+const char *version     = "1.0";
 char *programName;
 const char *ttyLCKloc   = "/var/lock/LCK.."; /* location and prefix of serial port lock file */
 
@@ -126,53 +107,22 @@ void usage(char* program) {
     printf("sdm120c %s: ModBus RTU client to read EASTRON SDM120C smart mini power meter registers\n",version);
     printf("Copyright (C) 2015 Gianfranco Di Prinzio <gianfrdp@inwind.it>\n");
     printf("Complied with libmodbus %s\n\n", LIBMODBUS_VERSION_STRING);
-    printf("Usage: %s [-a address] [-d n] [-x] [-p] [-v] [-c] [-e] [-i] [-t] [-f] [-g] [-T] [[-m]|[-q]] [-b baud_rate] [-P parity] [-S bit] [-z num_retries] [-j seconds] [-w seconds] [-1 | -2] device\n", program);
-    printf("       %s [-a address] [-d n] [-x] [-b baud_rate] [-P parity] [-S bit] [-1 | -2] [-z num_retries] [-j seconds] [-w seconds] -s new_address device\n", program);
-    printf("       %s [-a address] [-d n] [-x] [-b baud_rate] [-P parity] [-S bit] [-1 | -2] [-z num_retries] [-j seconds] [-w seconds] -r baud_rate device \n", program);
-    printf("       %s [-a address] [-d n] [-x] [-b baud_rate] [-P parity] [-S bit] [-1 | -2] [-z num_retries] [-j seconds] [-w seconds] -N parity device \n", program);
-    printf("       %s [-a address] [-d n] [-x] [-b baud_rate] [-P parity] [-S bit] [-1 | -2] [-z num_retries] [-j seconds] [-w seconds] -R new_time device \n", program);
-    printf("       %s [-a address] [-d n] [-x] [-b baud_rate] [-P parity] [-S bit] [-1 | -2] [-z num_retries] [-j seconds] [-w seconds] -M new_mmode device \n", program);
-    printf("       %s [-a address] [-d n] [-x] [-b baud_rate] [-P parity] [-S bit] [-1 | -2] [-z num_retries] [-j seconds] [-w seconds] -O new_pulse device\n\n", program);
+    printf("Usage: %s [-a address] [-d n] [-x] [-p] [-v] [-c] [-e] [-i] [-t] [-f] [-g] [[-m]|[-q]] [-z num_retries] [-j seconds] [-w seconds] [-1 | -2] device\n", program);
+    printf("       %s [-a address] [-d n] [-x] [-z num_retries] [-j seconds] [-w seconds] -s new_address device\n", program);
     printf("Required:\n");
     printf("\tdevice\t\tSerial device (i.e. /dev/ttyUSB0)\n");
-    printf("Connection parameters:\n");
     printf("\t-a address \tMeter number (1-247). Default: 1\n");
-    printf("\t-b baud_rate \tUse baud_rate serial port speed (1200, 2400, 4800, 9600)\n");
-    printf("\t\t\tDefault: 2400\n");
-    printf("\t-P parity \tUse parity (E, N, O)\n");
-    printf("\t-S bit \t\tUse stop bits (1, 2). Default: 1\n");
-    printf("\t-1 \t\tModel: SDM120C (default)\n");
-    printf("\t-2 \t\tModel: SDM220\n");
     printf("Reading parameters (no parameter = retrieves all values):\n");
     printf("\t-p \t\tGet power (W)\n");
     printf("\t-v \t\tGet voltage (V)\n");
     printf("\t-c \t\tGet current (A)\n");
-    printf("\t-l \t\tGet apparent power (VA)\n");
-    printf("\t-n \t\tGet reactive power (VAR)\n");
     printf("\t-f \t\tGet frequency (Hz)\n");
-    printf("\t-o \t\tGet phase angle (Degree)\n");
     printf("\t-g \t\tGet power factor\n");
-    printf("\t-i \t\tGet imported energy (Wh)\n");
-    printf("\t-e \t\tGet exported energy (Wh)\n");
     printf("\t-t \t\tGet total energy (Wh)\n");
-    printf("\t-A \t\tGet imported reactive energy (VARh)\n");
-    printf("\t-B \t\tGet exported reactive energy (VARh)\n");
-    printf("\t-C \t\tGet total reactive energy (VARh)\n");
-    printf("\t-T \t\tGet Time for rotating display values (0=no rotation)\n");
     printf("\t-m \t\tOutput values in IEC 62056 format ID(VALUE*UNIT)\n");
     printf("\t-q \t\tOutput values in compact mode\n");
     printf("Writing new settings parameters:\n");
     printf("\t-s new_address \tSet new meter number (1-247)\n");
-    printf("\t-r baud_rate \tSet baud_rate meter speed (1200, 2400, 4800, 9600)\n");
-    printf("\t-N parity \tSet parity and stop bits (0-3)\n");
-    printf("\t\t\t0: N1, 1: E1, 2: O1, 3: N2\n");
-    printf("\t-R new_time  \tSet rotation time for displaying values (0=no rotation)\n");
-    printf("\t\t\tSDM120: (0-30s)\n");
-    printf("\t\t\tSDM220: (m-m-s-m) Demand interval, Slide time, Scroll time, Backlight time\n"); 
-    printf("\t-M new_mmode \tSet total energy measurement mode (1-3)\n");
-    printf("\t\t\t1: Total=Import, 2: Total=Import+Export, 3: Total=Import-Export\n");
-    printf("\t-O new_pulse \tSet Pulse 1 output (0-3)\n");
-    printf("\t\t\t0: 0.001kWh/imp(default), 1: 0.01kWh/imp, 2: 0.1kWh/imp, 3: 1kWh/imp\n");
     printf("Fine tuning & debug parameters:\n");
     printf("\t-z num_retries\tTry to read max num_retries times on bus before exiting\n");
     printf("\t\t\twith error. Default: 1 (no retry)\n");
@@ -511,90 +461,7 @@ void exit_error(modbus_t *ctx)
       exit(EXIT_FAILURE);
 }
 
-inline int bcd2int(int val)
-{
-    return((((val & 0xf0) >> 4) * 10) + (val & 0xf));
-}
-
-int int2bcd(int val)
-{
-    return(((val / 10) << 4) + (val % 10));
-}
-
-int bcd2num(const uint16_t *src, int len)
-{
-    int n = 0;
-    int m = 1;
-    int i = 0;
-    int shift = 0;
-    int digit = 0;
-    int j = 0;
-    for (i = 0; i < len; i++) {
-        for (j = 0; j < 4; j++) {
-            digit = ((src[len-1-i]>>shift) & 0x0F) * m;
-            n += digit;
-            m *= 10;
-            shift += 4;
-        }
-    }
-    return n;
-}
-
-#if 0
-
-// unused
-
-int getMeasureBCD(modbus_t *ctx, int address, int retries, int nb) {
-
-    uint16_t tab_reg[nb * sizeof(uint16_t)];
-    int rc;
-    int i;
-    int j = 0;
-    int exit_loop = 0;
-
-    while (j < retries && exit_loop == 0) {
-      j++;
-
-      if (command_delay) {
-        log_message(debug_flag, "Sleeping command delay: %ldus", command_delay);
-        usleep(command_delay);
-      }
-
-      log_message(debug_flag, "%d/%d. Register Address %d [%04X]", j, retries, 30000+address+1, address);
-      rc = modbus_read_input_registers(ctx, address, nb, tab_reg); // will wait response_timeout for a reply
-
-      if (rc == -1) {
-        log_message(debug_flag | ( j==retries ? DEBUG_SYSLOG : 0), "%s: ERROR (%d) %s, %d/%d, Address %d [%04X]", errno, modbus_strerror(errno), j, retries, 30000+address+1, address);
-        /* libmodbus already flushes 
-        log_message(debug_flag, "Flushed %d bytes", modbus_flush(ctx));
-        */
-        if (command_delay) {
-          log_message(debug_flag, "Sleeping command delay: %ldus", command_delay);
-          usleep(command_delay);
-        }
-      } else {
-        exit_loop = 1;
-      }
-    }
-
-    if (rc == -1) {
-      exit_error(ctx);
-    }
-
-    if (debug_flag) {
-       for (i=0; i < rc; i++) {
-          log_message(debug_flag, "reg[%d/%d]=%d (0x%X)", i, (rc-1), tab_reg[i], tab_reg[i]);
-       }
-    }
-
-    int value = bcd2num(&tab_reg[0], rc);
-
-    return value;
-}
-
-#endif
-
-float getMeasureFloat(modbus_t *ctx, int address, int retries, int nb) {
+uint32_t getMeasureFloat(modbus_t *ctx, int address, int retries, int nb, float divisor) {
 
     uint16_t tab_reg[nb * sizeof(uint16_t)];
     int rc = -1;
@@ -647,67 +514,13 @@ float getMeasureFloat(modbus_t *ctx, int address, int retries, int nb) {
        }
     }
 
-    // swap LSB and MSB
-    uint16_t tmp1 = tab_reg[0];
-    uint16_t tmp2 = tab_reg[1];
-    tab_reg[0] = tmp2;
-    tab_reg[1] = tmp1;
-
-    float value = modbus_get_float(&tab_reg[0]);
+	int32_t tmp = tab_reg[0] | (tab_reg[1] << 16);
+    float value = tmp / divisor;
 
     return value;
 
 }
 
-int getConfigBCD(modbus_t *ctx, int address, int retries, int nb) {
-
-    uint16_t tab_reg[nb * sizeof(uint16_t)];
-    int rc = -1;
-    int i;
-    int j = 0;
-    int exit_loop = 0;
-
-    while (j < retries && exit_loop == 0) {
-      j++;
-
-      if (command_delay) {
-        log_message(debug_flag, "Sleeping command delay: %ldus", command_delay);
-        usleep(command_delay);
-      }
-
-      log_message(debug_flag, "%d/%d. Register Address %d [%04X]", j, retries, 400000+address+1, address);
-      rc = modbus_read_registers(ctx, address, nb, tab_reg);
-
-      if (rc == -1) {
-        log_message(debug_flag | ( j==retries ? DEBUG_SYSLOG : 0), "ERROR (%d) %s, %d/%d, Address %d [%04X]", errno, modbus_strerror(errno), j, retries, 30000+address+1, address);
-        /* libmodbus already flushes 
-        log_message(debug_flag, "Flushing modbus buffer");
-        log_message(debug_flag, "Flushed %d bytes", modbus_flush(ctx));
-        */
-        if (command_delay) {
-          log_message(debug_flag, "Sleeping command delay: %ldus", command_delay);
-          usleep(command_delay);
-        }
-      } else {
-        exit_loop = 1;
-      }
-    }
-
-    if (rc == -1) {
-      exit_error(ctx);
-    }
-
-    if (debug_flag) {
-       for (i=0; i < rc; i++) {
-          log_message(debug_flag, "reg[%d/%d]=%d (0x%X)", i, (rc-1), tab_reg[i], tab_reg[i]);
-       }
-    }
-
-    int value = bcd2num(&tab_reg[0], rc);
-
-    return value;
-
-}
 
 void changeConfigHex(modbus_t *ctx, int address, int new_value, int restart)
 {
@@ -731,56 +544,7 @@ void changeConfigHex(modbus_t *ctx, int address, int new_value, int restart)
     }
 }
 
-void changeConfigFloat(modbus_t *ctx, int address, int new_value, int restart, int nb)
-{
-    uint16_t tab_reg[nb * sizeof(uint16_t)];
 
-    modbus_set_float((float) new_value, &tab_reg[0]);
-    // swap LSB and MSB
-    uint16_t tmp1 = tab_reg[0];
-    uint16_t tmp2 = tab_reg[1];
-    tab_reg[0] = tmp2;
-    tab_reg[1] = tmp1;
-
-    if (command_delay) {
-      log_message(debug_flag, "Sleeping command delay: %ldus", command_delay);
-      usleep(command_delay);
-    }
-
-    int n = modbus_write_registers(ctx, address, nb, tab_reg);
-    if (n != -1) {
-        printf("New value %d for address 0x%X\n", new_value, address);
-        if (restart == RESTART_TRUE) printf("You have to restart the meter for apply changes\n");
-    } else {
-        log_message(DEBUG_STDERR | DEBUG_SYSLOG, "error 2: (%d) %s, %d, %d", errno, modbus_strerror(errno), n);
-        if (errno == EMBXILFUN) // Illegal function
-            log_message(DEBUG_STDERR | DEBUG_SYSLOG, "Tip: is the meter in set mode?");
-        exit_error(ctx);
-    }
-}
-
-void changeConfigBCD(modbus_t *ctx, int address, int new_value, int restart, int nb)
-{
-    uint16_t tab_reg[nb * sizeof(uint16_t)];
-    uint16_t u_new_value = int2bcd(new_value);
-    tab_reg[0] = u_new_value;
-
-    if (command_delay) {
-      log_message(debug_flag, "Sleeping command delay: %ldus", command_delay);
-      usleep(command_delay);
-    }
-
-    int n = modbus_write_registers(ctx, address, nb, tab_reg);
-    if (n != -1) {
-        printf("New value %d for address 0x%X\n", u_new_value, address);
-        if (restart == RESTART_TRUE) printf("You have to restart the meter for apply changes\n");
-    } else {
-        log_message(DEBUG_STDERR | DEBUG_SYSLOG, "error 3: (%d) %s, %d, %d", errno, modbus_strerror(errno), n);
-        if (errno == EMBXILFUN) // Illegal function
-            log_message(DEBUG_STDERR | DEBUG_SYSLOG, "Tip: is the meter in set mode?");
-        exit_error(ctx);
-    }
-}
 
 /*--------------------------------------------------------------------------
     getIntLen
@@ -1016,32 +780,14 @@ void lockSer(const char *szttyDevice, const long unsigned int PID, int debug_fla
 int main(int argc, char* argv[])
 {
     int device_address = 1;
-    int model          = MODEL_120;
     int new_address    = 0;
     int power_flag     = 0;
     int volt_flag      = 0;
     int current_flag   = 0;
-    int pangle_flag    = 0;
     int freq_flag      = 0;
     int pf_flag        = 0;
-    int apower_flag    = 0;
-    int rapower_flag   = 0;
-    int export_flag    = 0;
-    int import_flag    = 0;
     int total_flag     = 0;
-    int rexport_flag   = 0;
-    int rimport_flag   = 0;
-    int rtotal_flag    = 0;
-    int new_baud_rate  = -1;
-    int new_parity_stop= -1;
     int compact_flag   = 0;
-    int time_disp_flag = 0;
-    int rotation_time_flag = 0;
-    int rotation_time  = 0; 
-    int measurement_mode_flag = 0;
-    int measurement_mode = 0; 
-    int pulse_flag     = 0;
-    int pulse_mode     = 0;
     int count_param    = 0;
     int num_retries    = 1;
 #if LIBMODBUS_VERSION_MAJOR >= 3 && LIBMODBUS_VERSION_MINOR >= 1 && LIBMODBUS_VERSION_MICRO >= 2
@@ -1054,19 +800,8 @@ int main(int argc, char* argv[])
     char *szttyDevice  = NULL;
 
     int c;
-    int speed          = 0;
-    int bits           = 0;
     int read_count     = 0;
-
-    const char *EVEN_parity = "E";
-    const char *NONE_parity = "N";
-    const char *ODD_parity  = "O";
-    char *c_parity     = NULL;
-    
-    int baud_rate      = 0;
-    int stop_bits      = 0;
-    char parity        = E_PARITY;
-    
+   
     programName        = argv[0];
 
     if (argc == 1) {
@@ -1113,35 +848,10 @@ int main(int argc, char* argv[])
                 count_param++;
                 log_message(debug_flag | DEBUG_SYSLOG, "current_flag = %d, count_param = %d", current_flag, count_param);
                 break;
-            case 'e':
-                export_flag = 1;
-                count_param++;
-                log_message(debug_flag | DEBUG_SYSLOG, "export_flag = %d, count_param = %d", export_flag, count_param);
-                break;
-            case 'i':
-                import_flag = 1;
-                log_message(debug_flag | DEBUG_SYSLOG, "import_flag = %d, count_param = %d", import_flag, count_param);
-                count_param++;
-                break;
             case 't':
                 total_flag = 1;
                 count_param++;
                 log_message(debug_flag | DEBUG_SYSLOG, "total_flag = %d, count_param = %d", total_flag, count_param);
-                break;
-            case 'A':
-                rimport_flag = 1;
-                count_param++;
-                log_message(debug_flag | DEBUG_SYSLOG, "rimport_flag = %d, count_param = %d", rimport_flag, count_param);
-                break;
-            case 'B':
-                rexport_flag = 1;
-                count_param++;
-                log_message(debug_flag | DEBUG_SYSLOG, "rexport_flag = %d, count_param = %d", rexport_flag, count_param);
-                break;
-            case 'C':
-                rtotal_flag = 1;
-                count_param++;
-                log_message(debug_flag | DEBUG_SYSLOG, "rtotal_flag = %d, count_param = %d", rtotal_flag, count_param);
                 break;
             case 'f':
                 freq_flag = 1;
@@ -1152,21 +862,6 @@ int main(int argc, char* argv[])
                 pf_flag = 1;
                 count_param++;
                 log_message(debug_flag | DEBUG_SYSLOG, "pf_flag = %d, count_param = %d", pf_flag, count_param);
-                break;
-            case 'l':
-                apower_flag = 1;
-                count_param++;
-                log_message(debug_flag | DEBUG_SYSLOG, "apower_flag = %d, count_param = %d", apower_flag, count_param);
-                break;
-            case 'n':
-                rapower_flag = 1;
-                log_message(debug_flag | DEBUG_SYSLOG, "rapower_flag = %d, count_param = %d", rapower_flag, count_param);
-                count_param++;
-                break;
-            case 'o':
-                pangle_flag = 1;
-                log_message(debug_flag | DEBUG_SYSLOG, "pangle_flag = %d, count_param = %d", pangle_flag, count_param);
-                count_param++;
                 break;
             case 'd':
                 switch (*optarg) {
@@ -1187,70 +882,6 @@ int main(int argc, char* argv[])
                 trace_flag = 1;
                 log_message(debug_flag | DEBUG_SYSLOG, "trace_flag = %d, count_param = %d", trace_flag, count_param);
                 break;
-            case 'b':
-                speed = atoi(optarg);
-                if (speed == 1200 || speed == 2400 || speed == 4800 || speed == 9600) {
-                    baud_rate = speed;
-                } else {
-                    fprintf (stderr, "%s: Baud Rate must be one of 1200, 2400, 4800, 9600\n", programName);
-                    exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "speed = %d, count_param = %d", speed, count_param);
-                break;
-            case 'P':
-                c_parity = strdup(optarg);
-                if (strcmp(c_parity,EVEN_parity) == 0) {
-                    parity = E_PARITY;
-                } else if (strcmp(c_parity,NONE_parity) == 0) {
-                    parity = N_PARITY;
-                } else if (strcmp(c_parity,ODD_parity) == 0) {
-                    parity = O_PARITY;
-                } else {
-                    fprintf (stderr, "%s: Parity must be one of E, N, O\n", programName);
-                    exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "c_parity = %s, count_param = %d", c_parity, count_param);
-                free(c_parity);
-                break;
-            case 'S':
-                bits = atoi(optarg);
-                if (bits == 1 || bits == 2) {
-                    stop_bits = bits;
-                } else {
-                    fprintf (stderr, "%s: Stop bits can be one of 1, 2\n", programName);
-                    exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "bits = %d, count_param = %d", bits, count_param);
-                break;
-            case 'r':
-                speed = atoi(optarg);
-                switch (speed) {
-                    case 1200:
-                        new_baud_rate = BR1200;
-                        break;
-                    case 2400:
-                        new_baud_rate = BR2400;
-                        break;
-                    case 4800:
-                        new_baud_rate = BR4800;
-                        break;
-                    case 9600:
-                        new_baud_rate = BR9600;
-                        break;
-                    default:
-                        fprintf (stderr, "%s: Baud Rate must be one of 1200, 2400, 4800, 9600\n", programName);
-                        exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "new_baud_rate = %d, count_param = %d", new_baud_rate, count_param);
-                break;
-            case 'N':
-                new_parity_stop = atoi(optarg);
-                if (!(0 <= new_parity_stop && new_parity_stop <= 3)) {
-                    fprintf (stderr, "%s: New parity/stop (%d) out of range, 0-3.\n", programName, new_parity_stop);
-                    exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "new_parity_stop = %s, count_param = %d", new_parity_stop, count_param);
-                break;
             case 's':
                 new_address = atoi(optarg);
                 if (!(0 < new_address && new_address <= 247)) {
@@ -1258,45 +889,6 @@ int main(int argc, char* argv[])
                     exit(EXIT_FAILURE);
                 }
                 log_message(debug_flag | DEBUG_SYSLOG, "new_address = %d, count_param = %d", new_address, count_param);
-                break;
-            case 'R':
-                rotation_time_flag = 1;
-                rotation_time = atoi(optarg);
-
-                if (model == MODEL_120 && !(0 <= rotation_time && rotation_time <= 30)) {
-                    fprintf (stderr, "%s: New rotation time (%d) out of range, 0-30.\n", programName, rotation_time);
-                    exit(EXIT_FAILURE);
-                } else if (model == MODEL_220 && !(0 <= rotation_time && rotation_time <= 9999)) {
-                    fprintf (stderr, "%s: SDM220 display time composite parameter (%d) out of range, 0-9999.\n", programName, rotation_time);
-                    exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "rotation_time_flag = %d, rotation_time = %d, count_param = %d", rotation_time_flag, rotation_time, count_param);
-                break;
-            case 'M':
-                measurement_mode_flag = 1;
-                measurement_mode = atoi(optarg);
-                if (!(1 <= measurement_mode && measurement_mode <= 3)) {
-                    fprintf (stderr, "%s: New measurement mode (%d) out of range, 1-3.\n", programName, rotation_time);
-                    exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "measurement_mode_flag = %d,  measurement_mode = %d, count_param = %d", measurement_mode_flag, measurement_mode, count_param);
-                break;
-            case 'O':
-                pulse_flag = 1;
-                pulse_mode = atoi(optarg);
-                if (!(0 <= pulse_mode && pulse_mode <= 3)) {
-                    fprintf (stderr, "%s: New pulse mode (%d) out of range, 0-3.\n", programName, pulse_mode);
-                    exit(EXIT_FAILURE);
-                }
-                log_message(debug_flag | DEBUG_SYSLOG, "pulse_flag = %d, rotation_mode = %d, count_param = %d", pulse_flag, pulse_mode, count_param);
-                break;
-            case '1':
-                model = MODEL_120;
-                log_message(debug_flag | DEBUG_SYSLOG, "model = %d, count_param = %d", model, count_param);
-                break;
-            case '2':
-                model = MODEL_220;
-                log_message(debug_flag | DEBUG_SYSLOG, "model = %d, count_param = %d", model, count_param);
                 break;
             case 'm':
                 metern_flag = 1;
@@ -1346,11 +938,6 @@ int main(int argc, char* argv[])
                 command_delay = atoi(optarg);
                 log_message(debug_flag | DEBUG_SYSLOG, "command_delay = %d, count_param = %d", command_delay, count_param);
                 break;
-            case 'T':
-                time_disp_flag = 1;
-                count_param++;
-                log_message(debug_flag | DEBUG_SYSLOG, "time_disp_flag = %d, count_param = %d", time_disp_flag, count_param);
-                break;
             case '?':
                 if (isprint (optopt)) {
                     fprintf (stderr, "%s: Unknown option `-%c'.\n", programName, optopt);
@@ -1389,9 +976,6 @@ int main(int argc, char* argv[])
 
     modbus_t *ctx;
     
-    // Baud rate
-    if (baud_rate == 0) baud_rate = DEFAULT_RATE;
-
     // Response timeout
     resp_timeout *= 100000;    
     log_message(debug_flag, "resp_timeout=%ldus", resp_timeout);
@@ -1418,27 +1002,15 @@ int main(int argc, char* argv[])
         log_message(debug_flag, "settle_time=%ldus", settle_time);
     }
 
-    if (stop_bits == 0) {
-        if (parity != N_PARITY)
-            stop_bits=1;     // Default if parity != N
-        else
-            stop_bits=2;     // Default if parity == N        
-    }
-
     //--- Modbus Setup start ---
     
-    ctx = modbus_new_rtu(szttyDevice, baud_rate, parity, 8, stop_bits);
+    ctx = modbus_new_rtu(szttyDevice, 9600, 'N', 8, 1);
     if (ctx == NULL) {
         log_message(debug_flag | DEBUG_SYSLOG, "Unable to create the libmodbus context\n");
         ClrSerLock(PID);
         exit(EXIT_FAILURE);
     } else {
-        log_message(debug_flag, "Libmodbus context open (%d%s%d)",
-                baud_rate,
-                (parity == E_PARITY) ? EVEN_parity :
-                (parity == N_PARITY) ? NONE_parity :
-                ODD_parity,
-                stop_bits);
+        log_message(debug_flag, "Libmodbus context open (9600N1)");
     }
 
 #if LIBMODBUS_VERSION_MAJOR >= 3 && LIBMODBUS_VERSION_MINOR >= 1 && LIBMODBUS_VERSION_MICRO >= 2
@@ -1505,28 +1077,11 @@ int main(int argc, char* argv[])
     float voltage     = 0;
     float current     = 0;
     float power       = 0;
-    float apower      = 0;
-    float rapower     = 0;
     float pf          = 0;
-    float pangle      = 0;
     float freq        = 0;
-    float imp_energy  = 0;
-    float exp_energy  = 0;
     float tot_energy  = 0;
-    float impr_energy = 0;
-    float expr_energy = 0;
-    float totr_energy = 0;
-    int   time_disp   = 0;
 
-    if (new_address > 0 && new_baud_rate > 0) {
-        log_message(DEBUG_STDERR, "Parameter -s and -r are mutually exclusive\n\n");
-        usage(programName);
-        exit_error(ctx);
-    } else if ((new_address > 0 || new_baud_rate > 0) && new_parity_stop >= 0) {
-        log_message(DEBUG_STDERR, "Parameter -s, -r and -N are mutually exclusive\n\n");
-        usage(programName);
-        exit_error(ctx);
-    } else if (new_address > 0) {
+	if (new_address > 0) {
 
         log_message(DEBUG_STDERR, "new_address = %d > 0, count_param = %d", new_address, count_param);
 
@@ -1539,143 +1094,33 @@ int main(int argc, char* argv[])
         } else {
             // change Address
             log_message(debug_flag, "Before change Address\n");
-            changeConfigFloat(ctx, DEVICE_ID, new_address, RESTART_FALSE, 2);
+            changeConfigHex(ctx, DEVICE_ID, new_address, RESTART_FALSE);
             modbus_close(ctx);
             modbus_free(ctx);
             ClrSerLock(PID);
             return 0;
         }
-
-    } else if (new_baud_rate >= 0) {
-
-        log_message(DEBUG_STDERR, "new_address = %d > 0, count_param = %d", new_address, count_param);
-
-        if (count_param > 0) {
-            usage(programName);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            exit(EXIT_FAILURE);
-        } else {
-            // change Baud Rate
-            log_message(debug_flag, "Before change Baud\n");
-            changeConfigFloat(ctx, BAUD_RATE, new_baud_rate, RESTART_FALSE, 2);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            return 0;
-        }
-
-    } else if (new_parity_stop >= 0) {
-
-        if (count_param > 0) {
-            usage(programName);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            exit(EXIT_FAILURE);
-        } else {
-            // change Parity/Stop
-            log_message(debug_flag, "Before change Parity\n");
-            changeConfigFloat(ctx, NPARSTOP, new_parity_stop, RESTART_TRUE, 2);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            return 0;
-        }
-
-    } else if (rotation_time_flag > 0) {
-
-        if (count_param > 0) {
-            usage(programName);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            exit(EXIT_FAILURE);
-        } else {
-            // change Time Rotation
-            changeConfigBCD(ctx, 
-                            model == MODEL_120 ? TIME_DISP : TIME_DISP_220, 
-                            rotation_time, RESTART_FALSE, 1);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            return 0;
-        }
-
-    } else if (measurement_mode_flag > 0) {
-
-        if (count_param > 0) {
-            usage(programName);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            exit(EXIT_FAILURE);
-        } else {
-            // change Measurement Mode
-            changeConfigHex(ctx, TOT_MODE, measurement_mode, RESTART_FALSE);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            return 0;
-        }
-
-    } else if (pulse_flag > 0) {
-
-        if (count_param > 0) {
-            usage(programName);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            exit(EXIT_FAILURE);
-        } else {
-            // change Measurement Mode
-            changeConfigHex(ctx, PULSE_OUT, pulse_mode, RESTART_FALSE);
-            modbus_close(ctx);
-            modbus_free(ctx);
-            ClrSerLock(PID);
-            return 0;
-        }
-
     } else if (power_flag   == 0 &&
-               apower_flag  == 0 &&
-               rapower_flag == 0 &&
                volt_flag    == 0 &&
                current_flag == 0 &&
                pf_flag      == 0 &&
-               pangle_flag  == 0 &&
                freq_flag    == 0 &&
-               export_flag  == 0 &&
-               import_flag  == 0 &&
-               total_flag   == 0 &&
-               rexport_flag == 0 &&
-               rimport_flag == 0 &&
-               rtotal_flag  == 0 &&
-               time_disp_flag == 0
+               total_flag   == 0
        ) {
        // if no parameter, retrieve all values
         power_flag   = 1;
-        apower_flag  = 1;
-        rapower_flag = 1;
         volt_flag    = 1;
         current_flag = 1;
-        pangle_flag  = 1;
         freq_flag    = 1;
         pf_flag      = 1;
-        export_flag  = 1;
-        import_flag  = 1;
         total_flag   = 1;
-        rexport_flag  = 1;
-        rimport_flag  = 1;
-        rtotal_flag   = 1;
-        count_param  = power_flag + apower_flag + rapower_flag + volt_flag + 
-                       current_flag + pangle_flag + freq_flag + pf_flag + 
-                       export_flag + import_flag + total_flag +
-                       rexport_flag + rimport_flag + rtotal_flag;
+        count_param  = power_flag + volt_flag + 
+                       current_flag + freq_flag + pf_flag + 
+                       total_flag;
     }
 
     if (volt_flag == 1) {
-        voltage = getMeasureFloat(ctx, VOLTAGE, num_retries, 2);
+        voltage = getMeasureFloat(ctx, VOLTAGE, num_retries, 1, 10.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_V(%3.2f*V)\n", device_address, voltage);
@@ -1687,7 +1132,7 @@ int main(int argc, char* argv[])
     }
 
     if (current_flag == 1) {
-        current  = getMeasureFloat(ctx, CURRENT, num_retries, 2);
+        current  = getMeasureFloat(ctx, CURRENT, num_retries, 2, 1000.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_C(%3.2f*A)\n", device_address, current);
@@ -1699,7 +1144,7 @@ int main(int argc, char* argv[])
     }
 
     if (power_flag == 1) {
-        power = getMeasureFloat(ctx, POWER, num_retries, 2);
+        power = getMeasureFloat(ctx, POWER, num_retries, 2, 10.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_P(%3.2f*W)\n", device_address, power);
@@ -1710,32 +1155,8 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (apower_flag == 1) {
-        apower = getMeasureFloat(ctx, APOWER, num_retries, 2);
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_VA(%3.2f*VA)\n", device_address, apower);
-        } else if (compact_flag == 1) {
-            printf("%3.2f ", apower);
-        } else {
-            printf("Active Apparent Power: %3.2f VA \n", apower);
-        }
-    }
-
-    if (rapower_flag == 1) {
-        rapower = getMeasureFloat(ctx, RAPOWER, num_retries, 2);
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_VAR(%3.2f*VAR)\n", device_address, rapower);
-        } else if (compact_flag == 1) {
-            printf("%3.2f ", rapower);
-        } else {
-            printf("Reactive Apparent Power: %3.2f VAR \n", rapower);
-        }
-    }
-
     if (pf_flag == 1) {
-        pf = getMeasureFloat(ctx, PFACTOR, num_retries, 2);
+        pf = getMeasureFloat(ctx, PFACTOR, num_retries, 2, 100.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_PF(%3.2f*F)\n", device_address, pf);
@@ -1746,20 +1167,8 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (pangle_flag == 1) {
-        pangle = getMeasureFloat(ctx, PANGLE, num_retries, 2);
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_PA(%3.2f*Dg)\n", device_address, pangle);
-        } else if (compact_flag == 1) {
-            printf("%3.2f ", pangle);
-        } else {
-            printf("Phase Angle: %3.2f Degree \n", pangle);
-        }
-    }
-
     if (freq_flag == 1) {
-        freq = getMeasureFloat(ctx, FREQUENCY, num_retries, 2);
+        freq = getMeasureFloat(ctx, FREQUENCY, num_retries, 2, 10.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_F(%3.2f*Hz)\n", device_address, freq);
@@ -1770,32 +1179,8 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (import_flag == 1) {
-        imp_energy = getMeasureFloat(ctx, IAENERGY, num_retries, 2) * 1000;
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_IE(%d*Wh)\n", device_address, (int)imp_energy);
-        } else if (compact_flag == 1) {
-            printf("%d ", (int)imp_energy);
-        } else {
-            printf("Import Active Energy: %d Wh \n", (int)imp_energy);
-        }
-    }
-
-    if (export_flag == 1) {
-        exp_energy = getMeasureFloat(ctx, EAENERGY, num_retries, 2) * 1000;
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_EE(%d*Wh)\n", device_address, (int)exp_energy);
-        } else if (compact_flag == 1) {
-            printf("%d ", (int)exp_energy);
-        } else {
-            printf("Export Active Energy: %d Wh \n", (int)exp_energy);
-        }
-    }
-
     if (total_flag == 1) {
-        tot_energy = getMeasureFloat(ctx, TAENERGY, num_retries, 2) * 1000;
+        tot_energy = getMeasureFloat(ctx, TAENERGY, num_retries, 2, 1.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_TE(%d*Wh)\n", device_address, (int)tot_energy);
@@ -1806,53 +1191,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (rimport_flag == 1) {
-        impr_energy = getMeasureFloat(ctx, IRAENERGY, num_retries, 2) * 1000;
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_IRE(%d*VARh)\n", device_address, (int)impr_energy);
-        } else if (compact_flag == 1) {
-            printf("%d ", (int)impr_energy);
-        } else {
-            printf("Import Reactive Energy: %d VARh \n", (int)impr_energy);
-        }
-    }
-
-    if (rexport_flag == 1) {
-        expr_energy = getMeasureFloat(ctx, ERAENERGY, num_retries, 2) * 1000;
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_ERE(%d*VARh)\n", device_address, (int)expr_energy);
-        } else if (compact_flag == 1) {
-            printf("%d ", (int)expr_energy);
-        } else {
-            printf("Export Reactive Energy: %d VARh \n", (int)expr_energy);
-        }
-    }
-
-    if (rtotal_flag == 1) {
-        totr_energy = getMeasureFloat(ctx, TRENERGY, num_retries, 2) * 1000;
-        read_count++;
-        if (metern_flag == 1) {
-            printf("%d_TRE(%d*VARh)\n", device_address, (int)totr_energy);
-        } else if (compact_flag == 1) {
-            printf("%d ", (int)totr_energy);
-        } else {
-            printf("Total Reactive Energy: %d VARh \n", (int)totr_energy);
-        }
-    }
-
-    if (time_disp_flag == 1) {
-        time_disp = getConfigBCD(ctx,
-                                 model == MODEL_120 ? TIME_DISP : TIME_DISP_220,
-                                 num_retries, 1);
-        read_count++;
-        if (compact_flag == 1) {
-            printf("%d ", (int) time_disp);
-        } else {
-            printf("Display rotation time: %d\n", (int) time_disp);
-        }
-    }
 
     if (read_count == count_param) {
         // log_message(debug_flag, "Flushed %d bytes", modbus_flush(ctx));

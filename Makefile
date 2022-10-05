@@ -4,12 +4,12 @@ CFLAGS  = -O2 -Wall -g `pkg-config --cflags libmodbus`
 #LDFLAGS = -O2 -Wall -g -L/usr/local/lib -lmodbus
 LDFLAGS = -O2 -Wall -g `pkg-config --libs libmodbus`
 
-SDM = sdm120c
+SDM = pzem16
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-${SDM}: sdm120c.o 
-	$(CC) -o $@ sdm120c.o $(LDFLAGS)
+${SDM}: pzem16.o
+	$(CC) -o $@ pzem16.o $(LDFLAGS)
 	chmod 4711 ${SDM}
 
 strip:
