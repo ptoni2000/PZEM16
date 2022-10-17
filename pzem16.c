@@ -10,9 +10,10 @@ extern "C" {
  * 
  * Adapted from:
  * 
- * sdm120c: ModBus RTU client to read EASTRON SDM120C smart mini power meter registers
+ * pzem16: ModBus RTU client to read EASTRON SDM120C smart mini power meter registers
  *
- * Copyright (C) 2015 Gianfranco Di Prinzio <gianfrdp@inwind.it>
+ * Copyright (C) 2022 Pierantonio Tabaro <toni.tabaro@gmail.com>
+ * based on: Copyright (C) 2015 Gianfranco Di Prinzio <gianfrdp@inwind.it>
  * 
  * Locking code partially from aurora by Curtronis.
  * Some code by TheDrake too. :)  
@@ -104,8 +105,9 @@ char *devLCKfile = NULL;
 char *devLCKfileNew = NULL;
 
 void usage(char* program) {
-    printf("sdm120c %s: ModBus RTU client to read EASTRON SDM120C smart mini power meter registers\n",version);
-    printf("Copyright (C) 2015 Gianfranco Di Prinzio <gianfrdp@inwind.it>\n");
+    printf("pzem16 %s: ModBus RTU client to read EASTRON SDM120C smart mini power meter registers\n",version);
+    printf("Copyright (C) 2012 Pierantonio Tabaro <toni.tabaro@gmail.com>\n");
+    printf("based on: Copyright (C) 2015 Gianfranco Di Prinzio <gianfrdp@inwind.it>\n");
     printf("Complied with libmodbus %s\n\n", LIBMODBUS_VERSION_STRING);
     printf("Usage: %s [-a address] [-d n] [-x] [-p] [-v] [-c] [-e] [-i] [-t] [-f] [-g] [[-m]|[-q]] [-z num_retries] [-j seconds] [-w seconds] [-1 | -2] device\n", program);
     printf("       %s [-a address] [-d n] [-x] [-z num_retries] [-j seconds] [-w seconds] -s new_address device\n", program);
@@ -215,7 +217,7 @@ void log_message(const int log, const char* format, ...) {
     }
     
     if (log & debug_mask & DEBUG_SYSLOG) {
-        openlog("sdm120c", LOG_PID|LOG_CONS, LOG_USER);
+        openlog("pzem16", LOG_PID|LOG_CONS, LOG_USER);
         if (!bCmdlineSyslogged) { 
             char versionbuffer[strlen(programName)+strlen(version)+3];
             snprintf(versionbuffer, strlen(programName)+strlen(version)+3, "%s v%s", programName, version);
