@@ -461,9 +461,9 @@ void exit_error(modbus_t *ctx)
       exit(EXIT_FAILURE);
 }
 
-uint32_t getMeasureFloat(modbus_t *ctx, int address, int retries, int nb, float divisor) {
+float getMeasureFloat(modbus_t *ctx, int address, int retries, int nb, float divisor) {
 
-    uint16_t tab_reg[nb * sizeof(uint16_t)];
+    uint16_t tab_reg[nb];
     int rc = -1;
     int i;
     int j = 0;
@@ -514,6 +514,10 @@ uint32_t getMeasureFloat(modbus_t *ctx, int address, int retries, int nb, float 
        }
     }
 
+	if(i==1) {
+		tab_reg[1] = 0;
+	}
+
 	int32_t tmp = tab_reg[0] | (tab_reg[1] << 16);
     float value = tmp / divisor;
 
@@ -524,15 +528,12 @@ uint32_t getMeasureFloat(modbus_t *ctx, int address, int retries, int nb, float 
 
 void changeConfigHex(modbus_t *ctx, int address, int new_value, int restart)
 {
-    uint16_t tab_reg[1];
-    tab_reg[0] = new_value;
-
     if (command_delay) {
       log_message(debug_flag, "Sleeping command delay: %ldus", command_delay);
       usleep(command_delay);
     }
 
-    int n = modbus_write_registers(ctx, address, 1, tab_reg);
+    int n = modbus_write_register(ctx, address, new_value);
     if (n != -1) {
         printf("New value %d for address 0x%X\n", new_value, address);
         if (restart == RESTART_TRUE) printf("You have to restart the meter for apply changes\n");
@@ -1156,7 +1157,7 @@ int main(int argc, char* argv[])
     }
 
     if (pf_flag == 1) {
-        pf = getMeasureFloat(ctx, PFACTOR, num_retries, 2, 100.0f);
+        pf = getMeasureFloat(ctx, PFACTOR, num_retries, 1, 1.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_PF(%3.2f*F)\n", device_address, pf);
@@ -1168,7 +1169,7 @@ int main(int argc, char* argv[])
     }
 
     if (freq_flag == 1) {
-        freq = getMeasureFloat(ctx, FREQUENCY, num_retries, 2, 10.0f);
+        freq = getMeasureFloat(ctx, FREQUENCY, num_retries, 1, 10.0f);
         read_count++;
         if (metern_flag == 1) {
             printf("%d_F(%3.2f*Hz)\n", device_address, freq);
